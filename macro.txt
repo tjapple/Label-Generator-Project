@@ -1,0 +1,482 @@
+Sub Create_Labels()
+' This macro scrapes the Cover Sheet of a test submission, creates a sheet for each test type to store
+'  the information, then exports each sheet as a CSV to a designated location. The macro then calls a python
+'  script with the Shell command, which combines and cleans the data into one CSV file ready for importing into
+'  the DYMO software.
+
+' Saved CSV locations can be changed if desired, but need to be changed in the python script as well. List of tests that
+'   trigger a return-after-discharge notice are kept in the python script.
+
+'The python script and its helper file must be saved in the location this macro is pulling from. Currently that is "L:\Label_Generator_Project\Python_Scripts".
+'   Filepath can be found at the top of this macro.
+
+' Table data is located by searching for titles, but the columns are hard-coded. If key terms are not present
+'   on a submission sheet, the macro will not work. Future issues with this are likely, as there are many different
+'   versions of these submission sheets.
+
+
+
+'Set location of python script
+    Dim scriptPath As String
+    scriptPath = "L:\Label_Generator_Project\Python_Scripts\energizer_labels.py"
+
+'Set export CSV filepaths
+    Dim PerformanceCSV As String
+    Dim DeepDischargeCSV As String
+    Dim ShelfCSV As String
+    Dim LeakageCSV As String
+    Dim BenchCSV As String
+    Dim SafetyCSV As String
+    
+    PerformanceCSV = "L:\Label_Generator_Project\performance_labels.csv"
+    DeepDischargeCSV = "L:\Label_Generator_Project\DD_labels.csv"
+    ShelfCSV = "L:\Label_Generator_Project\shelf_labels.csv"
+    LeakageCSV = "L:\Label_Generator_Project\leakage_labels.csv"
+    BenchCSV = "L:\Label_Generator_Project\bench_labels.csv"
+    SafetyCSV = "L:\Label_Generator_Project\safety_labels.csv"
+
+
+
+
+' Find locations of the tables
+    Dim TargetSheet As Worksheet
+    Set TargetSheet = ThisWorkbook.Worksheets("Cover Sheet")
+
+    'Search for row numbers
+    'Adjustments added to set row number to row with the desired data
+    Dim PerformanceRow As Variant
+    Dim DeepDischargeRow As Variant
+    Dim ShelfRow As Variant
+    Dim LeakageRow As Variant
+    Dim BenchRow As Variant
+    Dim SafetyRow As Variant
+    
+    PerformanceRow = FindRowWithPartialMatch("Test Regime", TargetSheet.Range("B1:B500"))
+    DeepDischargeRow = FindRowWithPartialMatch("JIS", TargetSheet.Range("B1:B500"))
+    ShelfRow = FindRowWithPartialMatch("Shelf Tests", TargetSheet.Range("B1:B500")) + 3
+    LeakageRow = FindRowWithPartialMatch("Leakage Tests", TargetSheet.Range("B1:B500")) + 3
+    BenchRow = FindRowWithPartialMatch("Bench Tests", TargetSheet.Range("B1:B500")) + 3
+
+    
+'Find constants and store in variables
+    Dim Engineer As String
+    Dim ExpNumber As String
+    Dim Lots As String
+    Dim CellSize As String
+    
+    
+    'Find Full Lot Number in order to extract experiment number
+    Dim FullLotRow As Variant
+    FullLotRow = Application.Match("Full Lot Number", TargetSheet.Range("B1:B500"), 0) + 1
+    
+    Dim DateMade As String
+    DateMade = ThisWorkbook.Sheets("Cover Sheet").Range("J3").Value
+    Engineer = ThisWorkbook.Sheets("Cover Sheet").Range("D3").Value  'assuming info is in the same place
+    ExpNumber = ThisWorkbook.Sheets("Cover Sheet").Range("B" & FullLotRow).Value
+    Lots = GetLots("Cover Sheet", "B" & FullLotRow & ":B" & (PerformanceRow - 2))
+    CellSize = ThisWorkbook.Sheets("Cover Sheet").Range("D5").Value
+    
+    
+
+    
+    
+    
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''' PERFORMANCE LABELS '''''''''''''''''''
+
+'Create and prepare sheet
+    headers = Array("Test", "Temp", "Cells", "Experiment", "Engineer", "Lots", "Return Notice", "Boxes", "Date Made")
+    Set ws = CreateAndPrepareSheet("performance_labels", headers)
+    
+    
+'Retrieve data from performance test table
+    'Test Names
+    Dim PerformanceNamesRange As String
+    PerformanceNamesRange = "E" & PerformanceRow & ":O" & PerformanceRow
+    With ThisWorkbook
+        .Sheets("Cover Sheet").Range(PerformanceNamesRange).Copy
+        .Sheets("performance_labels").Range("A2").PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=True
+    End With
+    
+    'Cell Numbers
+    Dim PerformanceCellsRange As String
+    Dim PerformanceCellsRow As Variant
+    PerformanceCellsRow = FindRowWithPartialMatch("Cell Numbers", TargetSheet.Range("B1:B200"))
+
+    PerformanceCellsRange = "E" & PerformanceCellsRow & ":O" & PerformanceCellsRow
+    With ThisWorkbook
+        .Sheets("Cover Sheet").Range(PerformanceCellsRange).Copy
+        .Sheets("performance_labels").Range("C2").PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=True
+    End With
+    
+    
+    'Input Experiment, Engineer, and Lots, and CellSize(in "boxes" column for python script usage)
+    ThisWorkbook.Sheets("performance_labels").Range("D2").Value = ExpNumber
+    ThisWorkbook.Sheets("performance_labels").Range("E2").Value = Engineer
+    ThisWorkbook.Sheets("performance_labels").Range("F2").Value = Lots
+    ThisWorkbook.Sheets("performance_labels").Range("H2").Value = CellSize
+    ThisWorkbook.Sheets("performance_labels").Range("I2").Value = DateMade
+    
+    
+        
+'Export Performance CSV to Desktop
+    ExportSheetAsCSV "performance_labels", PerformanceCSV
+
+        
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''' DEEP DISCHARGE LABELS '''''''''''''''''''
+'Create and prepare sheet
+    headers = Array("Test", "Temp", "Cells", "Experiment", "Engineer", "Lots", "Return Notice", "Boxes")
+    Set ws = CreateAndPrepareSheet("DD_labels", headers)
+    
+
+    
+'Retrieve data from Shelf Test table
+    'Test Names
+    Dim DDNamesRange As String
+    DDNamesRange = "B" & DeepDischargeRow & ":B" & (ShelfRow - 6)
+    ThisWorkbook.Sheets("DD_labels").Range("A2:A" & (ShelfRow - 4 - DeepDischargeRow)).Value = ThisWorkbook.Sheets("Cover Sheet").Range(DDNamesRange).Value
+    
+    'Cell Numbers
+    Dim DDCellsRange As String
+    DDCellsRange = "I" & DeepDischargeRow & ":I" & (ShelfRow - 6)
+    ThisWorkbook.Sheets("DD_labels").Range("C2:C" & (ShelfRow - 4 - DeepDischargeRow)).Value = ThisWorkbook.Sheets("Cover Sheet").Range(DDCellsRange).Value
+
+    
+        
+'Export DD CSV to Desktop
+    ExportSheetAsCSV "DD_labels", DeepDischargeCSV
+
+        
+        
+        
+  ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  '''''''''''''''''''' SHELF LABELS ''''''''''''''''''''''
+'Create and prepare sheet
+    headers = Array("Test", "Temp", "Cells", "Experiment", "Engineer", "Lots", "Return Notice", "Boxes")
+    Set ws = CreateAndPrepareSheet("shelf_labels", headers)
+    
+    
+'Retrieve data from Shelf Test table
+    'Test Names
+    Dim ShelfNamesRange As String
+    ShelfNamesRange = "B" & ShelfRow & ":B" & (LeakageRow - 6)
+    ThisWorkbook.Sheets("shelf_labels").Range("A2:A" & (LeakageRow - 4 - ShelfRow)).Value = ThisWorkbook.Sheets("Cover Sheet").Range(ShelfNamesRange).Value
+    
+    'Temp/Humidity
+    Dim ShelfTempRange As String
+    ShelfTempRange = "E" & ShelfRow & ":E" & (LeakageRow - 6)
+    ThisWorkbook.Sheets("shelf_labels").Range("B2:B" & (LeakageRow - 4 - ShelfRow)).Value = ThisWorkbook.Sheets("Cover Sheet").Range(ShelfTempRange).Value
+    
+    'Cell Numbers
+    Dim ShelfCellsRange As String
+    ShelfCellsRange = "J" & ShelfRow & ":J" & (LeakageRow - 6)
+    ThisWorkbook.Sheets("shelf_labels").Range("C2:C" & (LeakageRow - 4 - ShelfRow)).Value = ThisWorkbook.Sheets("Cover Sheet").Range(ShelfCellsRange).Value
+    
+    
+    
+'Export shelf CSV to Desktop
+    ExportSheetAsCSV "shelf_labels", ShelfCSV
+
+                
+        
+  ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  '''''''''''''''''' LEAKAGE LABELS ''''''''''''''''''''''
+'Create and prepare sheet
+    headers = Array("Test", "Temp", "Cells", "Experiment", "Engineer", "Lots", "Return Notice", "Boxes")
+    Set ws = CreateAndPrepareSheet("leakage_labels", headers)
+    
+    
+'Retrieve data from Leakage Test table
+    Dim LKGNamesRange As String
+    Dim LKGTempRange As String
+    Dim LKGCellsRange As String
+    LKGNamesRange = "B" & LeakageRow & ":B" & (BenchRow - 6)
+    LKGTempRange = "F" & LeakageRow & ":F" & (BenchRow - 6)
+    LKGCellsRange = "K" & LeakageRow & ":K" & (BenchRow - 6)
+    
+    With ThisWorkbook
+        .Sheets("leakage_labels").Range("A2:B" & (BenchRow - 4 - LeakageRow)).Value = .Sheets("Cover Sheet").Range(LKGNamesRange).Value
+        .Sheets("leakage_labels").Range("B2:B" & (BenchRow - 4 - LeakageRow)).Value = .Sheets("Cover Sheet").Range(LKGTempRange).Value
+        .Sheets("leakage_labels").Range("C2:C" & (BenchRow - 4 - LeakageRow)).Value = .Sheets("Cover Sheet").Range(LKGCellsRange).Value
+    End With
+    
+    
+    
+'Export leakage CSV to Desktop
+    ExportSheetAsCSV "leakage_labels", LeakageCSV
+        
+        
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''' BENCH LABELS '''''''''''''''''''''
+'Create and prepare sheet
+    headers = Array("Test", "Temp", "Cells", "Experiment", "Engineer", "Lots", "Return Notice", "Boxes")
+    Set ws = CreateAndPrepareSheet("bench_labels", headers)
+    
+
+    
+'Retrieve data from Shelf Test table
+    'Test Names
+    Dim BenchNamesRange As String
+    BenchNamesRange = "B" & BenchRow & ":B" & (BenchRow + 2) 'assuming there are 3 bench test(ovality, discharge, CTCR)
+    ThisWorkbook.Sheets("bench_labels").Range("A2:A4").Value = ThisWorkbook.Sheets("Cover Sheet").Range(BenchNamesRange).Value
+    
+    'Cell Numbers
+    Dim BenchCellsRange As String
+    BenchCellsRange = "F" & BenchRow & ":F" & (BenchRow + 2)
+    ThisWorkbook.Sheets("bench_labels").Range("C2:C4").Value = ThisWorkbook.Sheets("Cover Sheet").Range(BenchCellsRange).Value
+
+    
+        
+'Export DD CSV to Desktop
+    ExportSheetAsCSV "bench_labels", BenchCSV
+
+        
+  ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  '''''''''''''''''' SAFETY LABELS ''''''''''''''''''''''
+'Create and prepare sheet
+    headers = Array("Test", "Temp", "Cells", "Experiment", "Engineer", "Lots", "Return Notice", "Boxes")
+    Set ws = CreateAndPrepareSheet("safety_labels", headers)
+    
+    
+'Locate testing rows
+    Dim GassingLV As String
+    Dim DropLV As String
+    Dim ChargeLV As String
+    Dim OvenLV As String
+    Dim AbusiveLV As String
+    Dim TransportationLV As String
+    
+    GassingLV = "Cell Gassing"
+    DropLV = "Drop Tests"
+    ChargeLV = "Charge Tests"
+    OvenLV = "Oven Tests"
+    AbusiveLV = "Abusive Tests"
+    TransportationLV = "Transportation Tests"
+
+    'Search for row numbers
+    'Adjustments added to set row number to row with the desired data
+    Dim GassingRow As Variant
+    Dim DropRow As Variant
+    Dim ChargeRow As Variant
+    Dim OvenRow As Variant
+    Dim AbusiveRow As Variant
+    Dim TransportationRow As Variant
+    Dim EndRow As Variant
+
+    GassingRow = Application.Match(GassingLV, TargetSheet.Range("B1:B500"), 0) + 1
+    DropRow = Application.Match(DropLV, TargetSheet.Range("B1:B500"), 0) + 1
+    ChargeRow = FindRowWithPartialMatch("Charge", TargetSheet.Range("B1:B500")) + 1
+    OvenRow = Application.Match(OvenLV, TargetSheet.Range("B1:B500"), 0) + 1
+    AbusiveRow = Application.Match(AbusiveLV, TargetSheet.Range("B1:B500"), 0) + 1
+    TransportationRow = Application.Match(TransportationLV, TargetSheet.Range("B1:B500"), 0) + 1
+    EndRow = FindRowWithPartialMatch("Any Additional Testing", TargetSheet.Range("B1:B500")) - 4
+ 
+ 
+'Retrieve data from Safety Test table
+    'Cell Gassing
+    Dim GassingNamesRange As String
+    Dim GassingCellsRange As String
+    Dim GassingRangeSize As String
+    Dim NextTableRow As Long
+    
+    NextTableRow = 2
+    GassingNamesRange = "B" & GassingRow & ":B" & (DropRow - 2)
+    GassingCellsRange = "N" & GassingRow & ":N" & (DropRow - 2)
+    GassingRangeSize = DropRow - GassingRow - 1
+    
+    If GassingRangeSize > 0 Then
+        With ThisWorkbook
+            .Sheets("safety_labels").Range("A2:A" & (GassingRangeSize + 1)).Value = .Sheets("Cover Sheet").Range(GassingNamesRange).Value
+            .Sheets("safety_labels").Range("C2:C" & (GassingRangeSize + 1)).Value = .Sheets("Cover Sheet").Range(GassingCellsRange).Value
+        End With
+        NextTableRow = GassingRangeSize + 2  'set next row for table input
+    End If
+    
+    'Drop Tests
+    Dim DropNamesRange As String
+    Dim DropCellsRange As String
+    Dim DropRangeSize As String
+    
+    DropNamesRange = "B" & DropRow & ":B" & (ChargeRow - 2)
+    DropCellsRange = "N" & DropRow & ":N" & (ChargeRow - 2)
+    DropRangeSize = ChargeRow - DropRow - 1
+    
+    If DropRangeSize > 0 Then
+        With ThisWorkbook
+            .Sheets("safety_labels").Range("A" & (NextTableRow) & ":A" & (NextTableRow + DropRangeSize)).Value = .Sheets("Cover Sheet").Range(DropNamesRange).Value
+            .Sheets("safety_labels").Range("C" & (NextTableRow) & ":C" & (NextTableRow + DropRangeSize)).Value = .Sheets("Cover Sheet").Range(DropCellsRange).Value
+        End With
+        NextTableRow = NextTableRow + DropRangeSize
+    End If
+    
+    'Charge Tests
+    Dim ChargeNamesRange As String
+    Dim ChargeCellsRange As String
+    Dim ChargeRangeSize As String
+    
+    ChargeNamesRange = "B" & ChargeRow & ":B" & (OvenRow - 2)
+    ChargeCellsRange = "N" & ChargeRow & ":N" & (OvenRow - 2)
+    ChargeRangeSize = OvenRow - ChargeRow - 1
+    
+    If ChargeRangeSize > 0 Then
+        With ThisWorkbook
+            .Sheets("safety_labels").Range("A" & (NextTableRow) & ":A" & (NextTableRow + ChargeRangeSize)).Value = .Sheets("Cover Sheet").Range(ChargeNamesRange).Value
+            .Sheets("safety_labels").Range("C" & (NextTableRow) & ":C" & (NextTableRow + ChargeRangeSize)).Value = .Sheets("Cover Sheet").Range(ChargeCellsRange).Value
+        End With
+        NextTableRow = NextTableRow + ChargeRangeSize
+    End If
+    
+    'Oven Tests
+    Dim OvenNamesRange As String
+    Dim OvenCellsRange As String
+    Dim OvenRangeSize As String
+    
+    OvenNamesRange = "B" & OvenRow & ":B" & (AbusiveRow - 2)
+    OvenCellsRange = "N" & OvenRow & ":N" & (AbusiveRow - 2)
+    OvenRangeSize = AbusiveRow - OvenRow - 1
+    
+    If OvenRangeSize > 0 Then
+        With ThisWorkbook
+            .Sheets("safety_labels").Range("A" & (NextTableRow) & ":A" & (NextTableRow + OvenRangeSize)).Value = .Sheets("Cover Sheet").Range(OvenNamesRange).Value
+            .Sheets("safety_labels").Range("C" & (NextTableRow) & ":C" & (NextTableRow + OvenRangeSize)).Value = .Sheets("Cover Sheet").Range(OvenCellsRange).Value
+        End With
+        NextTableRow = NextTableRow + OvenRangeSize
+    End If
+    
+    'Abusive Tests
+    Dim AbusiveNamesRange As String
+    Dim AbusiveCellsRange As String
+    Dim AbusiveRangeSize As String
+    
+    AbusiveNamesRange = "B" & AbusiveRow & ":B" & (TransportationRow - 2)
+    AbusiveCellsRange = "N" & AbusiveRow & ":N" & (TransportationRow - 2)
+    AbusiveRangeSize = TransportationRow - AbusiveRow - 1
+    
+    If AbusiveRangeSize > 0 Then
+        With ThisWorkbook
+            .Sheets("safety_labels").Range("A" & (NextTableRow) & ":A" & (NextTableRow + AbusiveRangeSize)).Value = .Sheets("Cover Sheet").Range(AbusiveNamesRange).Value
+            .Sheets("safety_labels").Range("C" & (NextTableRow) & ":C" & (NextTableRow + AbusiveRangeSize)).Value = .Sheets("Cover Sheet").Range(AbusiveCellsRange).Value
+        End With
+        NextTableRow = NextTableRow + AbusiveRangeSize
+    End If
+    
+    'Transportation Tests
+    Dim TransportationNamesRange As String
+    Dim TransportationCellsRange As String
+    Dim TransportationRangeSize As String
+    
+    TransportationNamesRange = "B" & TransportationRow & ":B" & (TransportationRow + 10)
+    TransportationCellsRange = "N" & TransportationRow & ":N" & (TransportationRow + 10)
+    TransportationRangeSize = EndRow - TransportationRow + 1
+    
+    If TransportationRangeSize > 0 Then
+        With ThisWorkbook
+            .Sheets("safety_labels").Range("A" & (NextTableRow) & ":A" & (NextTableRow + TransportationRangeSize)).Value = .Sheets("Cover Sheet").Range(TransportationNamesRange).Value
+            .Sheets("safety_labels").Range("C" & (NextTableRow) & ":C" & (NextTableRow + TransportationRangeSize)).Value = .Sheets("Cover Sheet").Range(TransportationCellsRange).Value
+        End With
+    End If
+    
+    
+'Export safety CSV to Desktop
+    ExportSheetAsCSV "safety_labels", SafetyCSV
+    
+    
+    
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''PYTHON SCRIPT TO CLEAN DATA'''''''''''''''''''''''''''''''''''''''
+Dim cmd As String
+cmd = "python " & scriptPath
+
+Shell cmd, vbNormalFocus
+
+        
+End Sub
+
+'Function to create and prepare a new sheet
+Function CreateAndPrepareSheet(sheetName As String, headers As Variant) As Worksheet
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = ThisWorkbook.Sheets(sheetName)
+    On Error GoTo 0
+
+    If Not ws Is Nothing Then
+        Application.DisplayAlerts = False
+        ws.Delete
+        Application.DisplayAlerts = True
+    End If
+
+    Set ws = ThisWorkbook.Sheets.Add
+    ws.Name = sheetName
+
+    Dim i As Integer
+    For i = LBound(headers) To UBound(headers)
+        ws.Cells(1, i + 1).Value = headers(i)
+    Next i
+
+    Set CreateAndPrepareSheet = ws
+End Function
+'Function to export sheet as CSV
+Sub ExportSheetAsCSV(sheetName As String, ByVal csvFilePath As String)
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(sheetName)
+    
+    Application.DisplayAlerts = False
+    ws.Copy
+    ActiveWorkbook.SaveAs Filename:=csvFilePath, FileFormat:=xlCSV, Local:=True, ConflictResolution:=xlLocalSessionChanges
+    ActiveWorkbook.Close SaveChanges:=False
+    ws.Delete
+    Application.DisplayAlerts = True
+End Sub
+'Function to get all lot numbers in a single string
+Function GetLots(sheetName As String, rangeAddress As String) As String
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(sheetName)
+    
+    Dim cell As Range
+    Dim rng As Range
+    Set rng = ws.Range(rangeAddress)
+    
+    ' Initialize the output string
+    Dim output As String
+    output = ""
+    
+    ' Loop through each cell in the range and build the output string
+    For Each cell In rng
+        If Not IsEmpty(cell.Value) Then
+            If Not IsError(cell.Value) Then
+                output = output & CStr(cell.Value) & " " ' Using comma as a delimiter
+            End If
+        End If
+    Next cell
+    
+    ' Return the concatenated string
+    GetLots = output
+End Function
+'Find rows with partial string match
+Function FindRowWithPartialMatch(searchString As String, searchRange As Range) As Variant
+    Dim cell As Range
+    Dim foundRow As Variant
+    foundRow = 0 ' Initialize with error
+
+    For Each cell In searchRange
+        If Not IsError(cell.Value) Then
+            If InStr(1, CStr(cell.Value), searchString) > 0 Then
+                foundRow = cell.Row
+                Exit For
+            End If
+        End If
+    Next cell
+    
+    FindRowWithPartialMatch = foundRow
+End Function
+
+
+
+
+
+
+
