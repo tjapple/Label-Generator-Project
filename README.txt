@@ -1,4 +1,7 @@
-This is a project I did for my company, Energizer Holdings, where we perform tests on hundreds of thousands of batteries per year. These batteries get labeled, then sorted into boxes grouped by test category. Writing the necessary information on every one of these boxes is tedious, time-consuming, and prone to errors. I wrote this macro and python script to scrape all the data on the submission form, clean the data, duplicate the rows depending on how many batteries can fit in the box, and print the information out onto generated labels. 
+This is a project I did for my company, Energizer Holdings, where we perform tests on hundreds of thousands of batteries per year. These batteries get labeled, then sorted
+into boxes grouped by test category. Writing the necessary information on every one of these boxes is tedious, time-consuming, and prone to errors. I wrote this macro and
+python script to scrape all the data on the submission form, clean the data, duplicate the rows depending on how many batteries can fit in the box, and print the
+information out onto generated labels. 
 
 
 
