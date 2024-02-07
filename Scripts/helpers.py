@@ -21,6 +21,29 @@ def box_size_mapper(cell_size):
     return row_capacity, rows_in_box
 
 
+# Take in list of cell ranges from dataframe, number of lots, and the cell size -> return number of boxes needed for
+# each group, stored in a list. 
+def get_number_of_boxes(list_of_cell_ranges, number_of_lots, cell_size):
+    row_capacity, rows_in_box = box_size_mapper(cell_size)
+    boxes_per_group = []
+    for cell_range in list_of_cell_ranges:
+        if isinstance(cell_range, str):
+            # Get number of cells per test group
+            cells = cell_range.split('-')
+            number_of_cells = int(cells[1]) - int(cells[0]) + 1
+            # Get number of rows needed per test group
+            number_of_rows_per_lot = number_of_cells // row_capacity
+            if (number_of_cells % row_capacity) > 0:      # if cells don't complete a full row
+                number_of_rows_per_lot += 1
+            total_number_of_rows = int(number_of_rows_per_lot) * int(number_of_lots)
+            # Get number of boxes needed per test group
+            number_of_boxes = total_number_of_rows // rows_in_box
+            if (total_number_of_rows % rows_in_box) > 0:  # if rows don't complete a full box
+                number_of_boxes += 1
+            boxes_per_group.append(number_of_boxes)  
+    return boxes_per_group
+
+
 # Format lot numbers
 # Takes list of lot numbers and returns ranges
 def format_lots(numbers):
