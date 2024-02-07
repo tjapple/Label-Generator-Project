@@ -105,31 +105,11 @@ if performance_df.shape[0] > 0:
             elif "Fresh" in test:
                 performance_df.loc[performance_df['Test'] == test, 'Due'] = "Due: ASAP"
 
-
-    # Calculate number of boxes needed for performance test groups
-    boxes_per_delay_group = []
-    number_of_lots = len(unformatted_lots)
-    row_capacity, rows_in_box = box_size_mapper(cell_size)
-    for cell_range in performance_df['Cells']:
-        if isinstance(cell_range, str):
-            # Get number of cells per delay group
-            cells = cell_range.split('-')
-            number_of_cells = int(cells[1]) - int(cells[0]) + 1
-            # Get number of rows needed per delay group
-            number_of_rows_per_lot = number_of_cells // row_capacity
-            if (number_of_cells % row_capacity) > 0:      # if cells don't complete a full row
-                number_of_rows_per_lot += 1
-            total_number_of_rows = int(number_of_rows_per_lot) * int(number_of_lots)
-            # Get number of boxes needed per delay group
-            number_of_boxes = total_number_of_rows // rows_in_box
-            if (total_number_of_rows % rows_in_box) > 0:  # if rows don't complete a full box
-                number_of_boxes += 1
-            boxes_per_delay_group.append(number_of_boxes)        
-    #assign column value
+    # Duplicate labels per number of boxes needed
     if cell_size not in ['AA', 'AAA', 'C', 'D']: #default to 1 box per delay group
         performance_df['Boxes'] = 1
     else: 
-        performance_df['Boxes'] = boxes_per_delay_group
+        performance_df['Boxes'] = get_number_of_boxes(performance_df['Cells'], len(unformatted_lots), cell_size)
 
 
 
@@ -145,6 +125,13 @@ if DD_df.shape[0] > 0:
             new_DD_names.append(x)
     DD_df['Test'] = new_DD_names
 
+    # Duplicate labels per number of boxes needed
+    if cell_size not in ['AA', 'AAA', 'C', 'D']: #default to 1 box per delay group
+        DD_df['Boxes'] = 1
+    else: 
+        DD_df['Boxes'] = get_number_of_boxes(DD_df['Cells'], len(unformatted_lots), cell_size)
+
+
 
 
 # Change shelf test names
@@ -152,6 +139,13 @@ if shelf_df.shape[0] > 0:
     new_shelf_names = [strip_parens_from_name(test) for test in shelf_df['Test']]
     shelf_df['Test'] = new_shelf_names
     shelf_df['Test'] = shelf_df['Test'].str.replace('Undischarged', 'Shelf')
+
+    # Duplicate labels per number of boxes needed
+    if cell_size not in ['AA', 'AAA', 'C', 'D']: #default to 1 box per delay group
+        shelf_df['Boxes'] = 1
+    else: 
+        shelf_df['Boxes'] = get_number_of_boxes(shelf_df['Cells'], len(unformatted_lots), cell_size)
+
 
 
 
@@ -167,10 +161,23 @@ if leakage_df.shape[0] > 0:
             new_LKG_names.append('IPD - LKG')
     leakage_df['Test'] = new_LKG_names
 
+    # Duplicate labels per number of boxes needed
+    if cell_size not in ['AA', 'AAA', 'C', 'D']: #default to 1 box per delay group
+        leakage_df['Boxes'] = 1
+    else: 
+        leakage_df['Boxes'] = get_number_of_boxes(leakage_df['Cells'], len(unformatted_lots), cell_size)
+
+
 # Change safety test names
 if safety_df.shape[0] > 0:
     new_safety_names = [strip_parens_from_name(test) for test in safety_df['Test']]
     safety_df['Test'] = new_safety_names
+
+    # Duplicate labels per number of boxes needed
+    if cell_size not in ['AA', 'AAA', 'C', 'D']: #default to 1 box per delay group
+        safety_df['Boxes'] = 1
+    else: 
+        safety_df['Boxes'] = get_number_of_boxes(safety_df['Cells'], len(unformatted_lots), cell_size)
 
 
 
