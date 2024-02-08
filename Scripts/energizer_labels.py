@@ -27,7 +27,7 @@ from helpers import *
 return_after_discharge_reliability = ['CPD - LKG', 'IPD - LKG', 'ODL']
 
 # Key terms that will trigger a return notice for safety. Add as needed. Can be just a partial string.
-return_after_discharge_safety_key_terms = ['PD Cell', 'OD Cell', ' 25%', ' 50%', ' 75%', ' 100%', 'Over-Discharge', 'Forced Discharge'] #space before percents to distinguish between temp and test name
+return_after_discharge_safety_key_terms = ['PD Cell', ' 25%', ' 50%', ' 75%', ' 100%', 'Over-Discharge', 'Forced Discharge'] #space before percents to distinguish between temp and test name
 
 
 # Set input file locations. These are set in the macro, so must be the same as where macro sends them.
@@ -67,9 +67,8 @@ performance_df['Date Made'] = pd.to_datetime(performance_df['Date Made']) #conve
 date_made = performance_df.loc[0, 'Date Made']
 
 
-# Drop rows without cell numbers
+# Drop rows without cell numbers 
 performance_df.dropna(subset="Cells", inplace=True)
-
 
 # If any performance Tests:
 if performance_df.shape[0] > 0:
@@ -115,6 +114,7 @@ if performance_df.shape[0] > 0:
 
 # Change deep discharge test names
 if DD_df.shape[0] > 0:
+    DD_df.dropna(subset=['Cells'], inplace=True)
     new_DD_names = []
     for x in DD_df['Test']:
         if 'JIS' in x:    
@@ -136,6 +136,7 @@ if DD_df.shape[0] > 0:
 
 # Change shelf test names
 if shelf_df.shape[0] > 0:
+    shelf_df.dropna(subset=['Cells'], inplace=True)
     new_shelf_names = [strip_parens_from_name(test) for test in shelf_df['Test']]
     shelf_df['Test'] = new_shelf_names
     shelf_df['Test'] = shelf_df['Test'].str.replace('Undischarged', 'Shelf')
@@ -151,6 +152,7 @@ if shelf_df.shape[0] > 0:
 
 # Change leakage test names
 if leakage_df.shape[0] > 0:
+    leakage_df.dropna(subset=['Cells'], inplace=True)
     new_LKG_names = []
     for x in leakage_df['Test']:
         if 'Undischarged' in x:
@@ -170,6 +172,7 @@ if leakage_df.shape[0] > 0:
 
 # Change safety test names
 if safety_df.shape[0] > 0:
+    safety_df.dropna(subset=['Cells'], inplace=True)
     new_safety_names = [strip_parens_from_name(test) for test in safety_df['Test']]
     safety_df['Test'] = new_safety_names
 
@@ -189,7 +192,7 @@ combined_df = pd.concat([performance_df, DD_df, shelf_df, leakage_df, bench_df, 
 
 # Drop rows that have no cell numbers
 combined_df['Cells'].replace(["", " ", "NA", "NaN"], np.nan, inplace=True)
-combined_df.dropna(subset=['Cells'], inplace=True)
+combined_df.dropna(subset=['Cells'], inplace=True) #redundant but good backup
 
 # Make sure "Boxes" is in correct format
 combined_df['Boxes'].replace(np.nan, 1, inplace=True)
